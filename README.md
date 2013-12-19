@@ -52,6 +52,10 @@ I ran the tests on two datasets. The first was 45MB and the second 16GB. After r
 
 ## Install
 
+### Dependencies
+
+  * [Parallel bzip2 implementation][7] `apt-get install pbzip2`
+
 ```
 ```
 
@@ -69,8 +73,13 @@ I ran the tests on two datasets. The first was 45MB and the second 16GB. After r
   * [Fun with ZFS send and receive][2]
   * [Moving ZFS filesystems between pools][3]
   * [zfsonlinux/zfs-auto-snapshot][4]
+  * [Creating Long-Term Backups with Amazon Glacier on Linux][5]
+  * [uskudnik / amazon-glacier-cmd-interface][6]
 
 [1]: https://gist.github.com/sstephenson/5368148
 [2]: http://128bitstudios.com/2010/07/23/fun-with-zfs-send-and-receive/
 [3]: http://www.hlynes.com/2007/07/09/moving-zfs-filesystems-between-pools/
 [4]: https://github.com/zfsonlinux/zfs-auto-snapshot
+[5]: http://blog.tkassembled.com/326/creating-long-term-backups-with-amazon-glacier-on-linux/
+[6]: https://github.com/uskudnik/amazon-glacier-cmd-interface/
+[7]: http://compression.ca/pbzip2/
