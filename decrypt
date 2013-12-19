@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -e
+
+[ -n "$KEY_DIR" ] || KEY_DIR="$HOME/.keys"
+
+read -r -a line
+if [ "${line[0]}" = "key:" ] && [ -n "${line[1]}" ]; then
+  KEY_NAME="${line[1]}"
+else
+  echo "decrypt: invalid input" >&2
+  exit 1
+fi
+
+KEY_FILE="${KEY_DIR%/}/$KEY_NAME"
+[ -f "$KEY_FILE" ] || {
+  echo "decrypt: key file not found: $KEY_FILE" >&2
+  exit 2
+}
+
+openssl aes-256-cbc -d -a -pass file:"$KEY_FILE"
