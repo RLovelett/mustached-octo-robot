@@ -3,13 +3,11 @@ set -e
 
 [ -n "$KEY_DIR" ] || KEY_DIR="$HOME/.keys"
 
-read -r -a line
-if [ "${line[0]}" = "key:" ] && [ -n "${line[1]}" ]; then
-  KEY_NAME="${line[1]}"
-else
-  echo "decrypt: invalid input" >&2
+KEY_NAME="$1"
+[ -n "$KEY_NAME" ] || {
+  echo "usage: decrypt <key-name>" >&2
   exit 1
-fi
+}
 
 KEY_FILE="${KEY_DIR%/}/$KEY_NAME"
 [ -f "$KEY_FILE" ] || {
@@ -17,4 +15,15 @@ KEY_FILE="${KEY_DIR%/}/$KEY_NAME"
   exit 2
 }
 
-openssl aes-256-cbc -d -a -pass file:"$KEY_FILE"
+ENCRYPTED_FILE="$2"
+[ -n "$ENCRYPTED_FILE" ] || {
+  echo "usage: decrypt <key-name> <encrypted-file>" >&2
+  exit 3
+}
+
+[ -f "$ENCRYPTED_FILE" ] || {
+  echo "decrypt: encrypted file not found: $ENCRYPTED_FILE" >&2
+  exit 4
+}
+
+bzip2 -dc "$ENCRYPTED_FILE" | openssl aes-256-cbc -d -a -pass file:"$KEY_FILE" | bzip2 -d
