@@ -1,36 +1,88 @@
 #!/usr/bin/env bash
 set -e
 
-SNAPSHOT="stream/mysql@zfs-auto-snap_hourly-2013-12-19-1717"
-BASENAME="mysql"
+declare -A DATASETS
+DATASETS["001-mysql"]="stream/mysql@zfs-auto-snap_hourly-2013-12-19-1717"
+DATASETS["002-www"]="stream/www@zfs-auto-snap_hourly-2013-12-19-1717"
+DATASETS["003-git"]="pond/home/git@zfs-auto-snap_hourly-2013-12-19-1817"
+
 KEY_FILE="/root/.keys/zfs"
 
-FILENAME=$BASENAME
-echo "[$FILENAME] Plain"
-time -p sh -c "zfs send $SNAPSHOT > $FILENAME"
-BYTES=$(ls -lh $FILENAME | awk '{print  $5}')
-echo -e "[$FILENAME] Bytes: $BYTES\n"
+for KEY in ${!DATASETS[@]}; do
+  BASENAME=${KEY}
+  SNAPSHOT=${DATASETS[${KEY}]}
+  echo -e "$KEY => $SNAPSHOT\n"
 
-FILENAME="$BASENAME.bz2"
-echo "[$FILENAME] AES > Bzip2"
-time -p sh -c "zfs send $SNAPSHOT | openssl aes-256-cbc -a -salt -pass file:$KEY_FILE | bzip2 -9 > $FILENAME"
-BYTES=$(ls -lh $FILENAME | awk '{print  $5}')
-echo -e "[$FILENAME] Bytes: $BYTES\n"
+  FILENAME=$BASENAME
+  CMD="zfs send $SNAPSHOT > $FILENAME"
+  echo ${CMD}
+  time -p sh -c "$CMD"
+  BYTES=$(ls -lh $FILENAME | awk '{print  $5}')
+  echo -e "[$FILENAME] Bytes: $BYTES\n"
 
-FILENAME="$BASENAME.pbz2"
-echo "[$FILENAME] AES > PBzip2"
-time -p sh -c "zfs send \"$SNAPSHOT\" | openssl aes-256-cbc -a -salt -pass file:\"$KEY_FILE\" | pbzip2 -9 > $FILENAME"
-BYTES=$(ls -lh $FILENAME | awk '{print  $5}')
-echo -e "[$FILENAME] Bytes: $BYTES\n"
+  echo -e "****************************"
+  FILENAME="$BASENAME.bz2"
+  CMD="openssl aes-256-cbc -a -salt -pass file:$KEY_FILE -in $BASENAME | bzip2 -c9 > $FILENAME"
+  echo ${CMD}
+  time -p sh -c "$CMD"
+  BYTES=$(ls -lh $FILENAME | awk '{print  $5}')
+  echo -e "[$FILENAME] Bytes: $BYTES\n"
 
-FILENAME="$BASENAME.bz2.aes.bz2"
-echo "[$FILENAME] Bzip2 > AES > Bzip2"
-time -p sh -c "zfs send \"$SNAPSHOT\" | bzip2 -9 | openssl aes-256-cbc -a -salt -pass file:\"$KEY_FILE\" | bzip2 -9 > $FILENAME"
-BYTES=$(ls -lh $FILENAME | awk '{print  $5}')
-echo -e "[$FILENAME] Bytes: $BYTES\n"
+  FILENAME="$BASENAME-zfs.bz2"
+  CMD="zfs send $SNAPSHOT | openssl aes-256-cbc -a -salt -pass file:$KEY_FILE | bzip2 -c9 > $FILENAME"
+  echo ${CMD}
+  time -p sh -c "$CMD"
+  BYTES=$(ls -lh $FILENAME | awk '{print  $5}')
+  echo -e "[$FILENAME] Bytes: $BYTES"
+  echo -e "****************************\n"
 
-FILENAME="$BASENAME.pbz2.aes.bz2"
-echo "[$FILENAME] PBzip2 > AES > PBzip2"
-time -p sh -c "zfs send \"$SNAPSHOT\" | pbzip2 -9 | openssl aes-256-cbc -a -salt -pass file:\"$KEY_FILE\" | pbzip2 -9 > $FILENAME"
-BYTES=$(ls -lh $FILENAME | awk '{print  $5}')
-echo -e "[$FILENAME] Bytes: $BYTES\n"
+  echo -e "****************************"
+  FILENAME="$BASENAME.pbz2"
+  CMD="openssl aes-256-cbc -a -salt -pass file:$KEY_FILE -in $BASENAME | pbzip2 -c9 > $FILENAME"
+  echo ${CMD}
+  time -p sh -c "$CMD"
+  BYTES=$(ls -lh $FILENAME | awk '{print  $5}')
+  echo -e "[$FILENAME] Bytes: $BYTES\n"
+
+  FILENAME="$BASENAME-zfs.pbz2"
+  CMD="zfs send $SNAPSHOT | openssl aes-256-cbc -a -salt -pass file:$KEY_FILE | pbzip2 -c9 > $FILENAME"
+  echo ${CMD}
+  time -p sh -c "$CMD"
+  BYTES=$(ls -lh $FILENAME | awk '{print  $5}')
+  echo -e "[$FILENAME] Bytes: $BYTES"
+  echo -e "****************************\n"
+
+  echo -e "****************************"
+  FILENAME="$BASENAME.bz2.aes.bz2"
+  CMD="bzip2 -c9 $BASENAME | openssl aes-256-cbc -a -salt -pass file:$KEY_FILE | bzip2 -9 > $FILENAME"
+  echo ${CMD}
+  time -p sh -c "$CMD"
+  BYTES=$(ls -lh $FILENAME | awk '{print  $5}')
+  echo -e "[$FILENAME] Bytes: $BYTES\n"
+
+  FILENAME="$BASENAME-zfs.bz2.aes.bz2"
+  CMD="zfs send $SNAPSHOT | bzip2 -9 | openssl aes-256-cbc -a -salt -pass file:$KEY_FILE | bzip2 -9 > $FILENAME"
+  echo ${CMD}
+  time -p sh -c "$CMD"
+  BYTES=$(ls -lh $FILENAME | awk '{print  $5}')
+  echo -e "[$FILENAME] Bytes: $BYTES"
+  echo -e "****************************\n"
+
+  echo -e "****************************"
+  FILENAME="$BASENAME-zfs.pbz2.aes.bz2"
+  CMD="zfs send $SNAPSHOT | pbzip2 -9 | openssl aes-256-cbc -a -salt -pass file:$KEY_FILE | pbzip2 -9 > $FILENAME"
+  echo ${CMD}
+  time -p sh -c "$CMD"
+  BYTES=$(ls -lh $FILENAME | awk '{print  $5}')
+  echo -e "[$FILENAME] Bytes: $BYTES\n"
+
+  FILENAME="$BASENAME.pbz2.aes.bz2"
+  CMD="pbzip2 -c9 $BASENAME | openssl aes-256-cbc -a -salt -pass file:$KEY_FILE | pbzip2 -9 > $FILENAME"
+  echo ${CMD}
+  time -p sh -c "$CMD"
+  BYTES=$(ls -lh $FILENAME | awk '{print  $5}')
+  echo -e "[$FILENAME] Bytes: $BYTES"
+  echo -e "****************************\n"
+
+  rm ${BASENAME}*
+done
