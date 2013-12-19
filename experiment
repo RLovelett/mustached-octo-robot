@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -e
+
+SNAPSHOT="stream/mysql@zfs-auto-snap_hourly-2013-12-19-1717"
+BASENAME="mysql"
+KEY_FILE="/root/.keys/zfs"
+
+FILENAME=$BASENAME
+echo "[$FILENAME] Plain"
+time -p sh -c "zfs send $SNAPSHOT > $FILENAME"
+BYTES=$(ls -lh $FILENAME | awk '{print  $5}')
+echo -e "[$FILENAME] Bytes: $BYTES\n"
+
+FILENAME="$BASENAME.bz2"
+echo "[$FILENAME] AES > Bzip2"
+time -p sh -c "zfs send $SNAPSHOT | openssl aes-256-cbc -a -salt -pass file:$KEY_FILE | bzip2 -9 > $FILENAME"
+BYTES=$(ls -lh $FILENAME | awk '{print  $5}')
+echo -e "[$FILENAME] Bytes: $BYTES\n"
+
+FILENAME="$BASENAME.pbz2"
+echo "[$FILENAME] AES > PBzip2"
+time -p sh -c "zfs send \"$SNAPSHOT\" | openssl aes-256-cbc -a -salt -pass file:\"$KEY_FILE\" | pbzip2 -9 > $FILENAME"
+BYTES=$(ls -lh $FILENAME | awk '{print  $5}')
+echo -e "[$FILENAME] Bytes: $BYTES\n"
+
+FILENAME="$BASENAME.bz2.aes.bz2"
+echo "[$FILENAME] Bzip2 > AES > Bzip2"
+time -p sh -c "zfs send \"$SNAPSHOT\" | bzip2 -9 | openssl aes-256-cbc -a -salt -pass file:\"$KEY_FILE\" | bzip2 -9 > $FILENAME"
+BYTES=$(ls -lh $FILENAME | awk '{print  $5}')
+echo -e "[$FILENAME] Bytes: $BYTES\n"
+
+FILENAME="$BASENAME.pbz2.aes.bz2"
+echo "[$FILENAME] PBzip2 > AES > PBzip2"
+time -p sh -c "zfs send \"$SNAPSHOT\" | pbzip2 -9 | openssl aes-256-cbc -a -salt -pass file:\"$KEY_FILE\" | pbzip2 -9 > $FILENAME"
+BYTES=$(ls -lh $FILENAME | awk '{print  $5}')
+echo -e "[$FILENAME] Bytes: $BYTES\n"
