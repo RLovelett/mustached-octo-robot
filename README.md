@@ -6,7 +6,7 @@ Need a scheme to backup files long-term to Amazon Glacier. The steps and scripts
 
 In general there are three steps to archiving a ZFS dataset to Amazon Glacier. These tools are designed to help with 2 and 3.
 
-  1. Take a snapshot of the ZFS dataset
+  1. [Take a snapshot of the ZFS dataset][4]
   2. Create a dump of that ZFS dataset snapshot
   3. Upload the dump to Amazon Glacier
 
@@ -68,7 +68,9 @@ I ran the tests on two datasets. The first was 45MB and the second 16GB. After r
   * [Simple Encryption.md][1]
   * [Fun with ZFS send and receive][2]
   * [Moving ZFS filesystems between pools][3]
+  * [zfsonlinux/zfs-auto-snapshot][4]
 
 [1]: https://gist.github.com/sstephenson/5368148
 [2]: http://128bitstudios.com/2010/07/23/fun-with-zfs-send-and-receive/
 [3]: http://www.hlynes.com/2007/07/09/moving-zfs-filesystems-between-pools/
+[4]: https://github.com/zfsonlinux/zfs-auto-snapshot
