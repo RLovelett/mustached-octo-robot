@@ -3,7 +3,8 @@
 Need a scheme to backup files long-term to Amazon Glacier. The steps and scripts used to make up this collection is an amalgemation of information from a number of different sources.
 
 [1] https://gist.github.com/sstephenson/5368148
-[2] http://128bitstudios.com/2010/07/23/fun-with-zfs-send-and-receive
+[2] http://128bitstudios.com/2010/07/23/fun-with-zfs-send-and-receive/
+[3] http://www.hlynes.com/2007/07/09/moving-zfs-filesystems-between-pools/
 
 ## Install
 
