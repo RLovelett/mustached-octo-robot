@@ -21,8 +21,4 @@ KEY_FILE="${KEY_DIR%/}/$KEY_NAME"
   exit 3
 }
 
-echo "key: $KEY_NAME"
-echo "key file: $KEY_FILE"
-echo "snapshot: $SNAPSHOT"
-
 zfs send "$SNAPSHOT" | pbzip2 -9 | openssl aes-256-cbc -a -salt -pass file:"$KEY_FILE" | pbzip2 -9
