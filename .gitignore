@@ -1,5 +1,7 @@
 *.zfs
 *.bz2
 *.pbz2
+*.gz
+*.pgz
 *.txt
 *.csv
