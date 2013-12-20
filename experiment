@@ -1,23 +1,51 @@
 #!/usr/bin/env ruby
 require 'colorize'
+require 'benchmark'
+require 'csv'
 
 class Archive
-  attr_reader :filename
-  def initialize(output, command)
+  attr_reader :filename, :label, :time, :bytes
+  def initialize(output, label, command)
     @filename = output
+    @label = label
     @cmd = command
+    reset_stats
   end
 
-  def bytes
-    if File.exists?(filename.to_s)
-      File.size(filename.to_s)
-    else
-      0
-    end
+  def execute
+    reset_stats
+
+    @last_run = Benchmark.measure("#{label}:") { %x(#{self.to_s}) }
+
+    get_bytes
+    get_time
+  end
+
+  def row
+    [label.to_s, time, bytes]
   end
 
   def to_s
     "#{@cmd} > #{filename}"
+  end
+
+  private
+  def reset_stats
+    @bytes = 0
+    @time = 0
+    @last_run = nil
+  end
+
+  def get_bytes
+    if File.exists?(filename.to_s)
+      @bytes = File.size(filename.to_s)
+    else
+      @bytes = 0
+    end
+  end
+
+  def get_time
+    @time = @last_run.real
   end
 end
 
@@ -31,15 +59,27 @@ class Case
     @snapshot = snapshot
 
     @cmds = [
-      Archive.new(name, "zfs send #{snapshot}"),
-      Archive.new("#{name}.aes.bz2", "openssl aes-256-cbc -a -salt -pass file:#{key_file} -in #{name} | bzip2 -c9"),
-      Archive.new("#{name}-zfs.aes.bz2", "zfs send #{snapshot} | openssl aes-256-cbc -a -salt -pass file:#{key_file} | bzip2 -c9"),
-      Archive.new("#{name}.aes.pbz2", "openssl aes-256-cbc -a -salt -pass file:#{key_file} -in #{name} | pbzip2 -c9"),
-      Archive.new("#{name}-zfs.aes.pbz2", "zfs send #{snapshot} | openssl aes-256-cbc -a -salt -pass file:#{key_file} | pbzip2 -c9"),
-      Archive.new("#{name}.bz2.aes.bz2", "bzip2 -c9 #{name} | openssl aes-256-cbc -a -salt -pass file:#{key_file} | bzip2 -9"),
-      Archive.new("#{name}-zfs.bz2.aes.bz2", "zfs send #{snapshot} | bzip2 -9 | openssl aes-256-cbc -a -salt -pass file:#{key_file} | bzip2 -9"),
-      Archive.new("#{name}.pbz2.aes.pbz2", "pbzip2 -c9 #{name} | openssl aes-256-cbc -a -salt -pass file:#{key_file} | pbzip2 -9"),
-      Archive.new("#{name}-zfs.pbz2.aes.pbz2", "zfs send #{snapshot} | pbzip2 -9 | openssl aes-256-cbc -a -salt -pass file:#{key_file} | pbzip2 -9")
+      Archive.new("#{name}.zfs", "zfs", "zfs send #{snapshot}"),
+
+      # Bzip2
+      Archive.new("#{name}.ae9.1.bz2", "aes.1.bz2", "zfs send #{snapshot} | openssl aes-256-cbc -a -salt -pass file:#{key_file} | bzip2 -c1"),
+      Archive.new("#{name}.aes.1.pbz2", "aes.1.pbz2", "zfs send #{snapshot} | openssl aes-256-cbc -a -salt -pass file:#{key_file} | pbzip2 -c1"),
+      Archive.new("#{name}.1.bz2.aes.1.bz2", "1.bz2.aes.1.bz2", "zfs send #{snapshot} | bzip2 -1 | openssl aes-256-cbc -a -salt -pass file:#{key_file} | bzip2 -1"),
+      Archive.new("#{name}.1.pbz2.aes.1.pbz2", "1.pbz2.aes.1.pbz2", "zfs send #{snapshot} | pbzip2 -1 | openssl aes-256-cbc -a -salt -pass file:#{key_file} | pbzip2 -1"),
+      Archive.new("#{name}.aes.9.bz2", "aes.9.bz2", "zfs send #{snapshot} | openssl aes-256-cbc -a -salt -pass file:#{key_file} | bzip2 -c9"),
+      Archive.new("#{name}.aes.9.pbz2", "aes.9.pbz2", "zfs send #{snapshot} | openssl aes-256-cbc -a -salt -pass file:#{key_file} | pbzip2 -c9"),
+      Archive.new("#{name}.9.bz2.aes.9.bz2", "9.bz2.aes.9.bz2", "zfs send #{snapshot} | bzip2 -9 | openssl aes-256-cbc -a -salt -pass file:#{key_file} | bzip2 -9"),
+      Archive.new("#{name}.9.pbz2.aes.9.pbz2", "9.pbz2.aes.9.pbz2", "zfs send #{snapshot} | pbzip2 -9 | openssl aes-256-cbc -a -salt -pass file:#{key_file} | pbzip2 -9"),
+
+      # Gzip
+      Archive.new("#{name}.ae9.1.gz", "aes.1.gz", "zfs send #{snapshot} | openssl aes-256-cbc -a -salt -pass file:#{key_file} | gzip -c1"),
+      Archive.new("#{name}.aes.1.pgz", "aes.1.pgz", "zfs send #{snapshot} | openssl aes-256-cbc -a -salt -pass file:#{key_file} | pigz -c1"),
+      Archive.new("#{name}.1.gz.aes.1.gz", "1.gz.aes.1.gz", "zfs send #{snapshot} | gzip -1 | openssl aes-256-cbc -a -salt -pass file:#{key_file} | gzip -1"),
+      Archive.new("#{name}.1.pgz.aes.1.pgz", "1.pgz.aes.1.pgz", "zfs send #{snapshot} | pigz -1 | openssl aes-256-cbc -a -salt -pass file:#{key_file} | pigz -1"),
+      Archive.new("#{name}.aes.9.gz", "aes.9.gz", "zfs send #{snapshot} | openssl aes-256-cbc -a -salt -pass file:#{key_file} | gzip -c9"),
+      Archive.new("#{name}.aes.9.pgz", "aes.9.pgz", "zfs send #{snapshot} | openssl aes-256-cbc -a -salt -pass file:#{key_file} | pigz -c9"),
+      Archive.new("#{name}.9.gz.aes.9.gz", "9.gz.aes.9.gz", "zfs send #{snapshot} | gzip -9 | openssl aes-256-cbc -a -salt -pass file:#{key_file} | gzip -9"),
+      Archive.new("#{name}.9.pgz.aes.9.pgz", "9.pgz.aes.9.pgz", "zfs send #{snapshot} | pigz -9 | openssl aes-256-cbc -a -salt -pass file:#{key_file} | pigz -9")
     ]
   end
 
@@ -57,6 +97,14 @@ class Case
     '/root/.keys/zfs'
   end
 
+  def to_csv
+    CSV.open("#{name}.csv", 'wb') do |csv|
+      self.each do |cmd|
+        csv << cmd.row
+      end
+    end
+  end
+
   def to_s
     "#{name} => #{snapshot}"
   end
@@ -64,17 +112,18 @@ end
 
 datasets = [
   Case.new(:www, "stream/www@zfs-auto-snap_daily-2013-12-20-1132"),
-  #Case.new(:mysql, "stream/mysql@zfs-auto-snap_daily-2013-12-20-1132"),
-  #Case.new(:git, "pond/home/git@zfs-auto-snap_daily-2013-12-20-1132"),
-  #Case.new(:home, "pond/home/lindsey@zfs-auto-snap_daily-2013-12-20-1132")
+  Case.new(:mysql, "stream/mysql@zfs-auto-snap_daily-2013-12-20-1132"),
+  Case.new(:git, "pond/home/git@zfs-auto-snap_daily-2013-12-20-1132"),
+  Case.new(:home, "pond/home/lindsey@zfs-auto-snap_daily-2013-12-20-1132")
 ]
 
 datasets.each do |set|
   puts "#{set}\n".colorize(:red)
   set.each do |cmd|
     puts cmd.to_s.colorize(:light_blue)
-    %x(time -p sh -c "#{cmd}")
+    puts cmd.execute
     puts "[#{cmd.filename}] Bytes: #{cmd.bytes}".colorize(:green)
     puts ""
   end
+  set.to_csv
 end
