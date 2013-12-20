@@ -1,88 +1,80 @@
-#!/usr/bin/env bash
-set -e
+#!/usr/bin/env ruby
+require 'colorize'
 
-declare -A DATASETS
-DATASETS["001-mysql"]="stream/mysql@zfs-auto-snap_hourly-2013-12-19-1717"
-DATASETS["002-www"]="stream/www@zfs-auto-snap_hourly-2013-12-19-1717"
-DATASETS["003-git"]="pond/home/git@zfs-auto-snap_hourly-2013-12-19-1817"
+class Archive
+  attr_reader :filename
+  def initialize(output, command)
+    @filename = output
+    @cmd = command
+  end
 
-KEY_FILE="/root/.keys/zfs"
+  def bytes
+    if File.exists?(filename.to_s)
+      File.size(filename.to_s)
+    else
+      0
+    end
+  end
 
-for KEY in ${!DATASETS[@]}; do
-  BASENAME=${KEY}
-  SNAPSHOT=${DATASETS[${KEY}]}
-  echo -e "$KEY => $SNAPSHOT\n"
+  def to_s
+    "#{@cmd} > #{filename}"
+  end
+end
 
-  FILENAME=$BASENAME
-  CMD="zfs send $SNAPSHOT > $FILENAME"
-  echo ${CMD}
-  time -p sh -c "$CMD"
-  BYTES=$(ls -lh $FILENAME | awk '{print  $5}')
-  echo -e "[$FILENAME] Bytes: $BYTES\n"
+class Case
+  include Enumerable
 
-  echo -e "****************************"
-  FILENAME="$BASENAME.bz2"
-  CMD="openssl aes-256-cbc -a -salt -pass file:$KEY_FILE -in $BASENAME | bzip2 -c9 > $FILENAME"
-  echo ${CMD}
-  time -p sh -c "$CMD"
-  BYTES=$(ls -lh $FILENAME | awk '{print  $5}')
-  echo -e "[$FILENAME] Bytes: $BYTES\n"
+  attr_reader :name, :snapshot
 
-  FILENAME="$BASENAME-zfs.bz2"
-  CMD="zfs send $SNAPSHOT | openssl aes-256-cbc -a -salt -pass file:$KEY_FILE | bzip2 -c9 > $FILENAME"
-  echo ${CMD}
-  time -p sh -c "$CMD"
-  BYTES=$(ls -lh $FILENAME | awk '{print  $5}')
-  echo -e "[$FILENAME] Bytes: $BYTES"
-  echo -e "****************************\n"
+  def initialize(name, snapshot)
+    @name = name
+    @snapshot = snapshot
 
-  echo -e "****************************"
-  FILENAME="$BASENAME.pbz2"
-  CMD="openssl aes-256-cbc -a -salt -pass file:$KEY_FILE -in $BASENAME | pbzip2 -c9 > $FILENAME"
-  echo ${CMD}
-  time -p sh -c "$CMD"
-  BYTES=$(ls -lh $FILENAME | awk '{print  $5}')
-  echo -e "[$FILENAME] Bytes: $BYTES\n"
+    @cmds = [
+      Archive.new(name, "zfs send #{snapshot}"),
+      Archive.new("#{name}.aes.bz2", "openssl aes-256-cbc -a -salt -pass file:#{key_file} -in #{name} | bzip2 -c9"),
+      Archive.new("#{name}-zfs.aes.bz2", "zfs send #{snapshot} | openssl aes-256-cbc -a -salt -pass file:#{key_file} | bzip2 -c9"),
+      Archive.new("#{name}.aes.pbz2", "openssl aes-256-cbc -a -salt -pass file:#{key_file} -in #{name} | pbzip2 -c9"),
+      Archive.new("#{name}-zfs.aes.pbz2", "zfs send #{snapshot} | openssl aes-256-cbc -a -salt -pass file:#{key_file} | pbzip2 -c9"),
+      Archive.new("#{name}.bz2.aes.bz2", "bzip2 -c9 #{name} | openssl aes-256-cbc -a -salt -pass file:#{key_file} | bzip2 -9"),
+      Archive.new("#{name}-zfs.bz2.aes.bz2", "zfs send #{snapshot} | bzip2 -9 | openssl aes-256-cbc -a -salt -pass file:#{key_file} | bzip2 -9"),
+      Archive.new("#{name}.pbz2.aes.pbz2", "pbzip2 -c9 #{name} | openssl aes-256-cbc -a -salt -pass file:#{key_file} | pbzip2 -9"),
+      Archive.new("#{name}-zfs.pbz2.aes.pbz2", "zfs send #{snapshot} | pbzip2 -9 | openssl aes-256-cbc -a -salt -pass file:#{key_file} | pbzip2 -9")
+    ]
+  end
 
-  FILENAME="$BASENAME-zfs.pbz2"
-  CMD="zfs send $SNAPSHOT | openssl aes-256-cbc -a -salt -pass file:$KEY_FILE | pbzip2 -c9 > $FILENAME"
-  echo ${CMD}
-  time -p sh -c "$CMD"
-  BYTES=$(ls -lh $FILENAME | awk '{print  $5}')
-  echo -e "[$FILENAME] Bytes: $BYTES"
-  echo -e "****************************\n"
+  def each &block
+    @cmds.each do |cmd|
+      if block_given?
+        block.call cmd
+      else
+        yield cmd
+      end
+    end
+  end
 
-  echo -e "****************************"
-  FILENAME="$BASENAME.bz2.aes.bz2"
-  CMD="bzip2 -c9 $BASENAME | openssl aes-256-cbc -a -salt -pass file:$KEY_FILE | bzip2 -9 > $FILENAME"
-  echo ${CMD}
-  time -p sh -c "$CMD"
-  BYTES=$(ls -lh $FILENAME | awk '{print  $5}')
-  echo -e "[$FILENAME] Bytes: $BYTES\n"
+  def key_file
+    '/root/.keys/zfs'
+  end
 
-  FILENAME="$BASENAME-zfs.bz2.aes.bz2"
-  CMD="zfs send $SNAPSHOT | bzip2 -9 | openssl aes-256-cbc -a -salt -pass file:$KEY_FILE | bzip2 -9 > $FILENAME"
-  echo ${CMD}
-  time -p sh -c "$CMD"
-  BYTES=$(ls -lh $FILENAME | awk '{print  $5}')
-  echo -e "[$FILENAME] Bytes: $BYTES"
-  echo -e "****************************\n"
+  def to_s
+    "#{name} => #{snapshot}"
+  end
+end
 
-  echo -e "****************************"
-  FILENAME="$BASENAME-zfs.pbz2.aes.bz2"
-  CMD="zfs send $SNAPSHOT | pbzip2 -9 | openssl aes-256-cbc -a -salt -pass file:$KEY_FILE | pbzip2 -9 > $FILENAME"
-  echo ${CMD}
-  time -p sh -c "$CMD"
-  BYTES=$(ls -lh $FILENAME | awk '{print  $5}')
-  echo -e "[$FILENAME] Bytes: $BYTES\n"
+datasets = [
+  Case.new(:www, "stream/www@zfs-auto-snap_daily-2013-12-20-1132"),
+  #Case.new(:mysql, "stream/mysql@zfs-auto-snap_daily-2013-12-20-1132"),
+  #Case.new(:git, "pond/home/git@zfs-auto-snap_daily-2013-12-20-1132"),
+  #Case.new(:home, "pond/home/lindsey@zfs-auto-snap_daily-2013-12-20-1132")
+]
 
-  FILENAME="$BASENAME.pbz2.aes.bz2"
-  CMD="pbzip2 -c9 $BASENAME | openssl aes-256-cbc -a -salt -pass file:$KEY_FILE | pbzip2 -9 > $FILENAME"
-  echo ${CMD}
-  time -p sh -c "$CMD"
-  BYTES=$(ls -lh $FILENAME | awk '{print  $5}')
-  echo -e "[$FILENAME] Bytes: $BYTES"
-  echo -e "****************************\n"
-
-  rm ${BASENAME}*
-done
+datasets.each do |set|
+  puts "#{set}\n".colorize(:red)
+  set.each do |cmd|
+    puts cmd.to_s.colorize(:light_blue)
+    %x(time -p sh -c "#{cmd}")
+    puts "[#{cmd.filename}] Bytes: #{cmd.bytes}".colorize(:green)
+    puts ""
+  end
+end
